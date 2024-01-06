@@ -31,59 +31,75 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: krd-mysql
+  name: krd-mysql-deployment
   labels:
     app: krd-mysql
-    tier: database
 spec:
-  selector: # mysql Pod Should contain same labels
+  replicas: 1
+  selector:
     matchLabels:
-      app: krd-mysql
-      tier: database
+      app: krd-mysql # Must match the selector of the mysql service resource
   strategy:
     type: Recreate
   template:
     metadata:
       labels: # Must match 'Service' and 'Deployment' selectors
         app: krd-mysql
-        tier: database
     spec:
       containers:
         - image: mysql:latest # image from docker-hub
           name: krd-mysql
           env:
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-db
+                  key: database
+
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: mysql-root-user
+                  name: mysql-root
+                  key: password
+
+            - name: MYSQL_USER_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-user
+                  key: username
+
+            - name: MYSQL_USER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-user
                   key: password
 
           ports:
             - containerPort: 3306
               name: krd-mysql
 
-          volumeMounts: # Mounting voulume obtained from Persistent Volume Claim
-            - name: krd-mysql-persistent-volume
+          volumeMounts: # Mounting volume obtained from Persistent Volume Claim
+            - name: krd-mysql-pv
               mountPath: /var/lib/mysql #This is the path in the container on which the mounting will take place.
       volumes:
-        - name: krd-mysql-persistent-volume # Obtaining 'volume' from PVC
+        - name: krd-mysql-pv # Obtaining 'volume' from PVC
           persistentVolumeClaim:
             claimName: krd-mysql-pvc
 
 ---
 # Define a 'Service' To Expose mysql to Other Services
+# This service resource exposes a port 3306 on the nodes in the krd-general cluster via a NodePort
 apiVersion: v1
 kind: Service
 metadata:
-  name: krd-mysql # DNS name
+  name: krd-mysql
   labels:
     app: krd-mysql
-    tier: database
 spec:
+  selector:
+    app: krd-mysql # This service should route any traffic to pods with the matching "krd-mysql" selector (this is how we make our database available to our pods)
+  type: NodePort
   ports:
     - port: 3306
-      targetPort: 3306
-  selector: # mysql Pod Should contain same labels
-    app: krd-mysql
-    tier: database
-  clusterIP: None # We Use DNS, Thus ClusterIP is not relevant
+      targetPort: 3306 # Expose a port 3306 on the nodes in the krd-general cluster
+      nodePort: 30007
