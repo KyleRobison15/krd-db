@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: krd-mysql-pv
+  labels:
+    app: krd-mysql
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "var/lib/mysql"
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: krd-mysql-pvc
+  labels:
+    app: krd-mysql
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+
+---
+# Configure 'Deployment' of mysql server
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: krd-mysql
+  labels:
+    app: krd-mysql
+    tier: database
+spec:
+  selector: # mysql Pod Should contain same labels
+    matchLabels:
+      app: krd-mysql
+      tier: database
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels: # Must match 'Service' and 'Deployment' selectors
+        app: krd-mysql
+        tier: database
+    spec:
+      containers:
+        - image: mysql:latest # image from docker-hub
+          name: krd-mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-root-user
+                  key: password
+
+          ports:
+            - containerPort: 3306
+              name: krd-mysql
+
+          volumeMounts: # Mounting voulume obtained from Persistent Volume Claim
+            - name: krd-mysql-persistent-volume
+              mountPath: /var/lib/mysql #This is the path in the container on which the mounting will take place.
+      volumes:
+        - name: krd-mysql-persistent-volume # Obtaining 'volume' from PVC
+          persistentVolumeClaim:
+            claimName: krd-mysql-pvc
+
+---
+# Define a 'Service' To Expose mysql to Other Services
+apiVersion: v1
+kind: Service
+metadata:
+  name: krd-mysql # DNS name
+  labels:
+    app: krd-mysql
+    tier: database
+spec:
+  ports:
+    - port: 3306
+      targetPort: 3306
+  selector: # mysql Pod Should contain same labels
+    app: krd-mysql
+    tier: database
+  clusterIP: None # We Use DNS, Thus ClusterIP is not relevant
