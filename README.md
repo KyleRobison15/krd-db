@@ -8,7 +8,9 @@ KRDev applications follow a microservice architecture. As such, I have chosen to
 
 - NOTE: Database secrets are maintained in a separate, private repository.
 
-## Notes
+## K8s Manifests
+
+I have combined multiple K8s resource manifests in a single file called krd-mysql-deployment.yaml. This makes it easy to create the necessary resources for my mysql instance in one go by running `kubectl apply -f krd-mysql-deployment.yaml`. Below is an explanation of the manifests:
 
 - spec: This section contains the specifications for the Kubernetes resource, such as the type of Service or the number of replicas for the Deployment.
 - selector: This section specifies the label selector for the Service or Deployment. In this case, the Service will match pods with the app=krd-mysql label and the Deployment will select pods with the app=krd-mysql label.
@@ -19,6 +21,26 @@ KRDev applications follow a microservice architecture. As such, I have chosen to
 - env: This section specifies the environment variables that will be set for the container. In this case, there are four environment variables being set using secrets created from Kubernetes Secret resources. This was set earlier.
 - volumeMounts: This section specifies the mount points for the volumes that will be used by the container. In this case, there is one volume named mysql-pv, which is mounted to the container’s /var/lib/mysql directory.
 - containerPort: This section specifies the port that the container will listen on. In this case, the container will listen on port 3306.
+
+## Creating Schemas in krd-mysql
+
+Once the MySQL Instance is up and running in the K8s cluster, we can launch a shell terminal within the pod to interact with our Database.
+
+To add a new Schema:
+
+1. Start an interactive shell within the running pod:
+
+- `kubectl exec --stdin --tty paste-pod-name -- /bin/bash`
+
+2. Login as root
+
+- `mysql –u root –p`
+
+3. Run an SQL script to create a new database
+
+- It's usually best to generate the script from MySQL Workbench
+- Once the database is initialized, the data will be persisted!
+- CAUTION: If the SQL Script DROPS the database and you run it, it will overwrite ALL the data in the database, so you want to do this only once when you first initialize the production database.
 
 ## Kubernetes Secrets - The Problem
 
