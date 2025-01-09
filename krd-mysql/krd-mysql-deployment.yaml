@@ -47,7 +47,7 @@ spec:
         app: krd-mysql
     spec:
       containers:
-        - image: mysql:8.0 # image from docker-hub
+        - image: mysql:8.4 # image from docker-hub
           name: krd-mysql
           env:
             - name: MYSQL_DATABASE
